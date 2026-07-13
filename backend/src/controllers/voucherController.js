@@ -243,6 +243,94 @@ const rejectVoucher = asyncHandler(async (req, res) => {
   return success(res, 200, 'Voucher rejected.', updated);
 });
 
+const getEmployeeDashboard = asyncHandler(async (req, res) => {
+  const [statusRows] = await pool.query(
+    `SELECT status, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
+     FROM vouchers WHERE employee_id = ? GROUP BY status`,
+    [req.user.id]
+  );
+
+  const counts = { draft: 0, pending: 0, approved: 0, rejected: 0 };
+  let totalAmountClaimed = 0;
+  for (const row of statusRows) {
+    counts[row.status] = row.count;
+    // claimed = anything past draft
+    if (row.status !== 'draft') totalAmountClaimed += Number(row.total);
+  }
+
+  const totalVouchers = Object.values(counts).reduce((a, b) => a + b, 0);
+
+  return success(res, 200, 'Employee dashboard fetched.', {
+    totalVouchers,
+    draftVouchers: counts.draft,
+    pendingApproval: counts.pending,
+    approvedVouchers: counts.approved,
+    rejectedVouchers: counts.rejected,
+    totalAmountClaimed,
+  });
+});
+
+const getDirectorDashboard = asyncHandler(async (req, res) => {
+  const [[pendingRow]] = await pool.query(
+    `SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
+     FROM vouchers WHERE status = 'pending'`
+  );
+  const [[approvedTodayRow]] = await pool.query(
+    `SELECT COUNT(*) AS count FROM vouchers
+     WHERE status = 'approved' AND DATE(approval_date) = CURDATE()`
+  );
+  const [[rejectedTodayRow]] = await pool.query(
+    `SELECT COUNT(*) AS count FROM vouchers
+     WHERE status = 'rejected' AND DATE(approval_date) = CURDATE()`
+  );
+  const [recentActivity] = await pool.query(
+    `SELECT v.id, v.voucher_number, v.expense_title, v.amount, v.status, v.updated_at,
+            u.name AS employee_name
+     FROM vouchers v JOIN users u ON u.id = v.employee_id
+     ORDER BY v.updated_at DESC LIMIT 10`
+  );
+
+  return success(res, 200, 'Director dashboard fetched.', {
+    pendingApprovalCount: pendingRow.count,
+    approvedToday: approvedTodayRow.count,
+    rejectedToday: rejectedTodayRow.count,
+    totalPendingAmount: Number(pendingRow.total),
+    recentActivity,
+  });
+});
+
+const getAccountsDashboard = asyncHandler(async (req, res) => {
+  const [statusRows] = await pool.query(
+    `SELECT status, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
+     FROM vouchers GROUP BY status`
+  );
+
+  const counts = { draft: 0, pending: 0, approved: 0, rejected: 0 };
+  let totalApprovedExpenseAmount = 0;
+  for (const row of statusRows) {
+    counts[row.status] = row.count;
+    if (row.status === 'approved') totalApprovedExpenseAmount = Number(row.total);
+  }
+  const totalVouchers = Object.values(counts).reduce((a, b) => a + b, 0);
+
+  const [recentApproved] = await pool.query(
+    `SELECT v.id, v.voucher_number, v.expense_title, v.amount, v.approval_date,
+            u.name AS employee_name
+     FROM vouchers v JOIN users u ON u.id = v.employee_id
+     WHERE v.status = 'approved'
+     ORDER BY v.approval_date DESC LIMIT 10`
+  );
+
+  return success(res, 200, 'Accounts dashboard fetched.', {
+    totalVouchers,
+    pendingApproval: counts.pending,
+    approvedVouchers: counts.approved,
+    rejectedVouchers: counts.rejected,
+    totalApprovedExpenseAmount,
+    recentApprovedVouchers: recentApproved,
+  });
+});
+
 module.exports = {
   createVoucher,
   updateVoucher,
@@ -254,4 +342,7 @@ module.exports = {
   getVoucherById,
   approveVoucher,
   rejectVoucher,
+  getEmployeeDashboard,
+  getDirectorDashboard,
+  getAccountsDashboard,
 };

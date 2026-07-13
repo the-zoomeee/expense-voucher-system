@@ -17,6 +17,10 @@ router.get('/pending', authorize('director'), ctrl.getPendingVouchers);
 router.post('/:id/approve', authorize('director'), upload.single('directorSignature'), ctrl.approveVoucher);
 router.post('/:id/reject', authorize('director'), ctrl.rejectVoucher);
 
+router.get('/dashboard/employee', authorize('employee'), ctrl.getEmployeeDashboard);
+router.get('/dashboard/director', authorize('director'), ctrl.getDirectorDashboard);
+router.get('/dashboard/accounts', authorize('accounts'), ctrl.getAccountsDashboard);
+
 router.get('/', authorize('director', 'accounts'), ctrl.getAllVouchers);
 
 router.get('/:id', ctrl.getVoucherById);
