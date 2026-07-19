@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import Login from './pages/Login';
+import VoucherDetails from './pages/VoucherDetails';
 import MyVouchers from './pages/employee/MyVouchers';
 import VoucherForm from './pages/employee/VoucherForm';
 
@@ -34,6 +35,10 @@ export default function App() {
           } />
           <Route path="/employee/vouchers/:id/edit" element={
             <ProtectedRoute roles={['employee']}><VoucherForm mode="edit" /></ProtectedRoute>
+          } />
+
+          <Route path="/vouchers/:id" element={
+            <ProtectedRoute><VoucherDetails /></ProtectedRoute>
           } />
 
           <Route path="*" element={<Navigate to="/" replace />} />
