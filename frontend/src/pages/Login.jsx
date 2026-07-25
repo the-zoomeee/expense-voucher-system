@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const roleHome = {
-  employee: '/employee/vouchers',
-  director: '/director/pending',
-  accounts: '/accounts/vouchers',
+  employee: '/employee/dashboard',
+  director: '/director/dashboard',
+  accounts: '/accounts/dashboard',
 };
 
 export default function Login() {
