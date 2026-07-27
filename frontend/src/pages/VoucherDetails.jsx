@@ -75,7 +75,15 @@ export default function VoucherDetails() {
 
   return (
     <div className="max-w-3xl">
-      <button onClick={() => navigate(-1)} className="text-sm text-brand-600 hover:underline mb-4">← Back</button>
+      <div className="no-print flex items-center justify-between mb-4">
+        <button onClick={() => navigate(-1)} className="text-sm text-brand-600 hover:underline">← Back</button>
+        <button
+          onClick={() => window.print()}
+          className="border border-brand-600 text-brand-600 hover:bg-brand-50 text-sm px-4 py-1.5 rounded-lg"
+        >
+          Print / Download
+        </button>
+      </div>
 
       <div className="bg-white rounded-xl shadow p-6">
         <div className="flex items-start justify-between mb-4">
@@ -117,7 +125,7 @@ export default function VoucherDetails() {
         )}
 
         {canAct && (
-          <div className="border-t pt-4 mt-2 space-y-6">
+          <div className="no-print border-t pt-4 mt-2 space-y-6">
             <form onSubmit={handleApprove} className="space-y-2">
               <h2 className="text-sm font-semibold">Approve Voucher</h2>
               <input type="file" accept="image/png,image/jpeg,image/webp"

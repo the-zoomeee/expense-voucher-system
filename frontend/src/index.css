@@ -5,3 +5,12 @@
 body {
   @apply bg-slate-50 text-slate-800;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
