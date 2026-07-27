@@ -2,8 +2,8 @@
 
 Full-stack app for ABC Company's expense voucher workflow: employees create and
 submit vouchers, the Director approves/rejects them, and the Accounts Team
-monitors everything for reimbursement. Vouchers are searchable/filterable/
-sortable across the list views.
+monitors everything for reimbursement — with role dashboards and search/filter/
+sort/print on top.
 
 Stack: React (Vite) + Tailwind on the frontend, Node.js/Express + MySQL on the
 backend, JWT auth, Multer for signature image uploads.
@@ -88,6 +88,9 @@ on failure). Protected routes require `Authorization: Bearer <token>`.
 | GET | `/api/vouchers/mine` | Employee | All of the caller's own vouchers |
 | GET | `/api/vouchers` | Director, Accounts | Optional `?status=` filter |
 | GET | `/api/vouchers/pending` | Director | Vouchers awaiting approval |
+| GET | `/api/vouchers/dashboard/employee` | Employee | Total/draft/pending/approved/rejected counts + total amount claimed |
+| GET | `/api/vouchers/dashboard/director` | Director | Pending count, approved/rejected today, total pending amount, recent activity |
+| GET | `/api/vouchers/dashboard/accounts` | Accounts | Totals by status, total approved expense amount, recent approved vouchers |
 | GET | `/api/vouchers/:id` | Owner employee, Director, Accounts | 403 if an employee requests someone else's voucher |
 | POST | `/api/vouchers/:id/approve` | Director | multipart, requires `directorSignature` file |
 | POST | `/api/vouchers/:id/reject` | Director | requires `rejectionReason` in body |
@@ -113,6 +116,10 @@ params: `search` (matches voucher number or employee name), `department`,
 - Voucher numbers are just `VCH-<year>-<sequence>`, auto-generated.
 - Signature uploads: PNG/JPG/WEBP only, 2MB cap by default (`MAX_UPLOAD_MB`).
 - No re-approving a rejected voucher — once it leaves `pending` it's final.
+- "Total Amount Claimed" on the employee dashboard = pending + approved +
+  rejected (drafts don't count, nothing's been claimed yet).
+- Print/download is just `window.print()` with a print stylesheet that hides
+  the nav and action buttons — didn't want to pull in a PDF lib for this.
 
 ## 5. Project structure
 
