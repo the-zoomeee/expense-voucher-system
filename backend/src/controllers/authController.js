@@ -61,4 +61,30 @@ const getMe = asyncHandler(async (req, res) => {
   return success(res, 200, 'Current user fetched.', rows[0]);
 });
 
-module.exports = { login, getMe };
+// PATCH /api/auth/password
+const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    throw new AppError('Current password and new password are required.', 400);
+  }
+  if (newPassword.length < 6) {
+    throw new AppError('New password must be at least 6 characters.', 400);
+  }
+
+  const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+  const user = rows[0];
+  if (!user) throw new AppError('User not found.', 404);
+
+  const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!isMatch) {
+    throw new AppError('Current password is incorrect.', 401);
+  }
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, user.id]);
+
+  return success(res, 200, 'Password updated.');
+});
+
+module.exports = { login, getMe, changePassword };

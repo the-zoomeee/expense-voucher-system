@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import Login from './pages/Login';
+import ChangePassword from './pages/Changepassword';
 import VoucherDetails from './pages/VoucherDetails';
 
 import EmployeeDashboard from './pages/employee/Dashboard';
@@ -51,6 +52,9 @@ export default function App() {
           } />
           <Route path="/employee/vouchers/new" element={
             <ProtectedRoute roles={['employee']}><VoucherForm mode="create" /></ProtectedRoute>
+          } />
+          <Route path="/account/change-password" element={
+            <ProtectedRoute><ChangePassword /></ProtectedRoute>
           } />
           <Route path="/employee/vouchers/:id/edit" element={
             <ProtectedRoute roles={['employee']}><VoucherForm mode="edit" /></ProtectedRoute>

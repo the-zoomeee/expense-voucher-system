@@ -46,7 +46,9 @@ export default function Navbar() {
             <Link to="/hr/employees" className="hover:underline">Employees</Link>
           </>
         )}
-        <span className="opacity-80">{user.name} ({user.role})</span>
+        <Link to="/account/change-password" className="hover:underline opacity-80">
+          {user.name} ({user.role})
+        </Link>
         <button
           onClick={() => { logout(); navigate('/login'); }}
           className="bg-brand-600 hover:bg-brand-500 px-3 py-1 rounded"
