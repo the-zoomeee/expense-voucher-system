@@ -4,7 +4,7 @@ import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import Login from './pages/Login';
-import ChangePassword from './pages/Changepassword';
+import Profile from './pages/Profile';
 import VoucherDetails from './pages/VoucherDetails';
 
 import EmployeeDashboard from './pages/employee/Dashboard';
@@ -53,9 +53,11 @@ export default function App() {
           <Route path="/employee/vouchers/new" element={
             <ProtectedRoute roles={['employee']}><VoucherForm mode="create" /></ProtectedRoute>
           } />
-          <Route path="/account/change-password" element={
-            <ProtectedRoute><ChangePassword /></ProtectedRoute>
+          <Route path="/profile" element={
+            <ProtectedRoute><Profile /></ProtectedRoute>
           } />
+          {/* Old URL kept working, redirects to the new profile page */}
+          <Route path="/account/change-password" element={<Navigate to="/profile" replace />} />
           <Route path="/employee/vouchers/:id/edit" element={
             <ProtectedRoute roles={['employee']}><VoucherForm mode="edit" /></ProtectedRoute>
           } />
