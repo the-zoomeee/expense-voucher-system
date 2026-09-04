@@ -96,4 +96,20 @@ const setUserActive = asyncHandler(async (req, res) => {
   return success(res, 200, isActive ? 'User reactivated.' : 'User deactivated.', updated[0]);
 });
 
-module.exports = { createUser, listUsers, updateUser, setUserActive };
+const resetPassword = asyncHandler(async (req, res) => {
+  const { newPassword } = req.body;
+
+  if (!newPassword || newPassword.length < 6) {
+    throw new AppError('New password must be at least 6 characters.', 400);
+  }
+
+  const [rows] = await pool.query('SELECT id FROM users WHERE id = ?', [req.params.id]);
+  if (!rows[0]) throw new AppError('User not found.', 404);
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.params.id]);
+
+  return success(res, 200, 'Password reset. Share the new password with the employee securely.');
+});
+
+module.exports = { createUser, listUsers, updateUser, setUserActive, resetPassword };

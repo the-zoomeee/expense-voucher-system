@@ -158,30 +158,53 @@ const submitVoucher = asyncHandler(async (req, res) => {
 });
 
 const getMyVouchers = asyncHandler(async (req, res) => {
-  const { whereSql, params, orderSql } = buildVoucherFilters(req.query);
+  const { whereSql, params, orderSql, limitSql, page, pageSize } = buildVoucherFilters(req.query);
   const scopedWhere = whereSql
     ? `${whereSql} AND v.employee_id = ?`
     : 'WHERE v.employee_id = ?';
+  const scopedParams = [...params, req.user.id];
+
+  const [[{ total }]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM vouchers v JOIN users u ON u.id = v.employee_id
+     ${scopedWhere}`,
+    scopedParams
+  );
 
   const [rows] = await pool.query(
     `SELECT v.*, u.name AS employee_name
      FROM vouchers v JOIN users u ON u.id = v.employee_id
-     ${scopedWhere} ${orderSql}`,
-    [...params, req.user.id]
+     ${scopedWhere} ${orderSql} ${limitSql}`,
+    scopedParams
   );
-  return success(res, 200, 'Your vouchers fetched.', rows);
+
+  return success(res, 200, 'Your vouchers fetched.', {
+    items: rows,
+    pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
+  });
 });
 
 const getAllVouchers = asyncHandler(async (req, res) => {
-  const { whereSql, params, orderSql } = buildVoucherFilters(req.query);
+  const { whereSql, params, orderSql, limitSql, page, pageSize } = buildVoucherFilters(req.query);
+
+  const [[{ total }]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM vouchers v JOIN users u ON u.id = v.employee_id
+     ${whereSql}`,
+    params
+  );
 
   const [rows] = await pool.query(
     `SELECT v.*, u.name AS employee_name
      FROM vouchers v JOIN users u ON u.id = v.employee_id
-     ${whereSql} ${orderSql}`,
+     ${whereSql} ${orderSql} ${limitSql}`,
     params
   );
-  return success(res, 200, 'Vouchers fetched.', rows);
+
+  return success(res, 200, 'Vouchers fetched.', {
+    items: rows,
+    pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
+  });
 });
 
 const getPendingVouchers = asyncHandler(async (req, res) => {

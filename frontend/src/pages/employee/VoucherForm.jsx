@@ -1,182 +1,140 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../../api/axios';
-import { CATEGORIES } from '../../constants/categories';
+import StatusBadge from '../../components/StatusBadge';
+import VoucherFilters from '../../components/VoucherFilters';
+import Pagination from '../../components/Pagination';
+import { useToast } from '../../context/ToastContext';
 
-const emptyForm = {
-  voucherDate: new Date().toISOString().slice(0, 10),
-  expenseDate: '',
-  departmentName: '',
-  expenseTitle: '',
-  expenseCategory: CATEGORIES[0],
-  expenseDescription: '',
-  amount: '',
-};
-
-export default function VoucherForm({ mode }) {
-  const isEdit = mode === 'edit';
-  const { id } = useParams();
-  const navigate = useNavigate();
-
-  const [form, setForm] = useState(emptyForm);
-  const [signatureFile, setSignatureFile] = useState(null);
-  const [existingSignature, setExistingSignature] = useState(null);
+export default function MyVouchers() {
+  const toast = useToast();
+  const [vouchers, setVouchers] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
+  const [filters, setFilters] = useState({});
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [loading, setLoading] = useState(isEdit);
-  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState(null);
 
-  useEffect(() => {
-    if (!isEdit) return;
-    api.get(`/vouchers/${id}`).then(({ data }) => {
-      const v = data.data;
-      setForm({
-        voucherDate: v.voucher_date?.slice(0, 10) || '',
-        expenseDate: v.expense_date?.slice(0, 10) || '',
-        departmentName: v.department_name,
-        expenseTitle: v.expense_title,
-        expenseCategory: v.expense_category,
-        expenseDescription: v.expense_description || '',
-        amount: v.amount,
-      });
-      setExistingSignature(v.employee_signature_path);
-      setLoading(false);
-    }).catch((err) => {
-      setError(err.response?.data?.message || 'Failed to load voucher.');
-      setLoading(false);
-    });
-  }, [id, isEdit]);
-
-  function validate() {
-    const errors = {};
-    if (!form.departmentName.trim()) errors.departmentName = 'Department is required.';
-    if (!form.expenseTitle.trim()) errors.expenseTitle = 'Expense title is required.';
-    if (!form.expenseDate) errors.expenseDate = 'Expense date is required.';
-    if (!form.expenseCategory) errors.expenseCategory = 'Category is required.';
-    if (!form.amount || Number(form.amount) <= 0) errors.amount = 'Amount must be greater than zero.';
-    if (!existingSignature && !signatureFile) errors.signature = 'A signature image is required.';
-    return errors;
-  }
-
-  function handleChange(e) {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setFieldErrors({ ...fieldErrors, [e.target.name]: undefined });
-  }
-
-  async function handleSave(e, andSubmit = false) {
-    e.preventDefault();
-    setError('');
-
-    const errors = validate();
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    setSaving(true);
-
+  async function load(page = 1) {
+    setLoading(true);
     try {
-      const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
-      if (signatureFile) fd.append('employeeSignature', signatureFile);
+      const { data } = await api.get('/vouchers/mine', { params: { ...filters, page, pageSize: 10 } });
 
-      let voucherId = id;
-      if (isEdit) {
-        await api.put(`/vouchers/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      // handles both the paginated shape ({items, pagination}) and a plain
+      // array, in case backend/frontend ever drift out of sync again
+      const payload = data.data;
+      if (Array.isArray(payload)) {
+        setVouchers(payload);
+        setPagination({ page: 1, totalPages: 1 });
       } else {
-        const { data } = await api.post('/vouchers', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-        voucherId = data.data.id;
+        setVouchers(payload?.items || []);
+        setPagination(payload?.pagination || { page: 1, totalPages: 1 });
       }
-
-      if (andSubmit) {
-        await api.post(`/vouchers/${voucherId}/submit`);
-      }
-
-      navigate('/employee/vouchers');
     } catch (err) {
-      setError(err.response?.data?.message || 'Could not save voucher.');
+      setError(err.response?.data?.message || 'Failed to load vouchers.');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   }
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  useEffect(() => { load(1); }, [filters]);
+
+  async function handleSubmit(id) {
+    setBusyId(id);
+    try {
+      await api.post(`/vouchers/${id}/submit`);
+      await load(pagination.page);
+      toast.success('Voucher submitted for approval.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not submit voucher.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!confirm('Delete this draft voucher?')) return;
+    setBusyId(id);
+    try {
+      await api.delete(`/vouchers/${id}`);
+      await load(pagination.page);
+      toast.success('Voucher deleted.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not delete voucher.');
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-lg font-semibold mb-4">{isEdit ? 'Edit Draft Voucher' : 'Create Voucher'}</h1>
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-lg font-semibold">My Vouchers</h1>
+        <Link to="/employee/vouchers/new" className="bg-brand-600 hover:bg-brand-700 text-white text-sm px-4 py-2 rounded-lg">
+          + New Voucher
+        </Link>
+      </div>
 
-      <form onSubmit={(e) => handleSave(e, false)} className="bg-white rounded-xl shadow p-6 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Voucher Date</label>
-            <input type="date" name="voucherDate" value={form.voucherDate} onChange={handleChange}
-              className="w-full border rounded-lg px-3 py-2" required />
+      <VoucherFilters
+        filters={filters}
+        onChange={setFilters}
+        statusOptions={['draft', 'pending', 'approved', 'rejected']}
+      />
+
+      {loading ? <p className="text-slate-500">Loading vouchers…</p> : error ? (
+        <p className="text-red-600">{error}</p>
+      ) : vouchers.length === 0 ? (
+        <p className="text-slate-500 text-sm">No vouchers match your filters.</p>
+      ) : (
+        <>
+          <div className="bg-white rounded-xl shadow overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-100 text-left text-slate-600">
+                <tr>
+                  <th className="px-4 py-2">Voucher #</th>
+                  <th className="px-4 py-2">Title</th>
+                  <th className="px-4 py-2">Amount</th>
+                  <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vouchers.map((v) => (
+                  <tr key={v.id} className="border-t">
+                    <td className="px-4 py-2 font-medium">{v.voucher_number}</td>
+                    <td className="px-4 py-2">{v.expense_title}</td>
+                    <td className="px-4 py-2">₹{Number(v.amount).toFixed(2)}</td>
+                    <td className="px-4 py-2"><StatusBadge status={v.status} /></td>
+                    <td className="px-4 py-2 space-x-3">
+                      <Link to={`/vouchers/${v.id}`} className="text-brand-600 hover:underline">View</Link>
+                      {v.status === 'draft' && (
+                        <>
+                          <Link to={`/employee/vouchers/${v.id}/edit`} className="text-brand-600 hover:underline">Edit</Link>
+                          <button
+                            disabled={busyId === v.id}
+                            onClick={() => handleSubmit(v.id)}
+                            className="text-emerald-600 hover:underline disabled:opacity-50"
+                          >
+                            Submit
+                          </button>
+                          <button
+                            disabled={busyId === v.id}
+                            onClick={() => handleDelete(v.id)}
+                            className="text-red-600 hover:underline disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Expense Date *</label>
-            <input type="date" name="expenseDate" value={form.expenseDate} onChange={handleChange}
-              className="w-full border rounded-lg px-3 py-2" required />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">Department *</label>
-          <input name="departmentName" value={form.departmentName} onChange={handleChange}
-            className={`w-full border rounded-lg px-3 py-2 ${fieldErrors.departmentName ? 'border-red-400' : ''}`} placeholder="e.g. Engineering" />
-            {fieldErrors.departmentName && <p className="text-xs text-red-600 mt-1">{fieldErrors.departmentName}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">Expense Title *</label>
-          <input name="expenseTitle" value={form.expenseTitle} onChange={handleChange}
-            className={`w-full border rounded-lg px-3 py-2 ${fieldErrors.expenseTitle ? 'border-red-400' : ''}`} required placeholder="e.g. Client visit travel" />
-            {fieldErrors.expenseTitle && <p className="text-xs text-red-600 mt-1">{fieldErrors.expenseTitle}</p>}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Category *</label>
-            <select name="expenseCategory" value={form.expenseCategory} onChange={handleChange}
-              className="w-full border rounded-lg px-3 py-2">
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Amount (₹) *</label>
-            <input type="number" min="0.01" step="0.01" name="amount" value={form.amount} onChange={handleChange}
-              className={`w-full border rounded-lg px-3 py-2 ${fieldErrors.amount ? 'border-red-400' : ''}`} required />
-              {fieldErrors.amount && <p className="text-xs text-red-600 mt-1">{fieldErrors.amount}</p>}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
-          <textarea name="expenseDescription" value={form.expenseDescription} onChange={handleChange}
-            className="w-full border rounded-lg px-3 py-2" rows={3} />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">Signature (image) {!existingSignature && '*'}</label>
-          <input type="file" accept="image/png,image/jpeg,image/webp"
-            onChange={(e) => setSignatureFile(e.target.files[0])}
-            className="w-full text-sm" />
-          {existingSignature && !signatureFile && (
-            <p className="text-xs text-slate-500 mt-1">Existing signature on file. Upload a new image only to replace it.</p>
-          )}
-        </div>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={saving}
-            className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-60">
-            Save as Draft
-          </button>
-          <button type="button" disabled={saving} onClick={(e) => handleSave(e, true)}
-            className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-60">
-            Save & Submit for Approval
-          </button>
-        </div>
-      </form>
+          <Pagination page={pagination.page} totalPages={pagination.totalPages} onChange={load} />
+        </>
+      )}
     </div>
   );
 }
