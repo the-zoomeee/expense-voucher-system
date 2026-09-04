@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 
-const ROLES = ['employee', 'director', 'accounts', 'hr'];
+const ROLES = ['employee', 'accounts'];
 
 const emptyForm = {
     name: '', email: '', password: '', role: 'employee',
