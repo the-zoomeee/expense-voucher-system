@@ -3,27 +3,30 @@ import { Link } from 'react-router-dom';
 import api from '../../api/axios';
 import StatusBadge from '../../components/StatusBadge';
 import VoucherFilters from '../../components/VoucherFilters';
+import Pagination from '../../components/Pagination';
 
 export default function MyVouchers() {
   const [vouchers, setVouchers] = useState([]);
-  const [filters, setFilters] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [busyId, setBusyId] = useState(null);
+const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
+const [filters, setFilters] = useState({});
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState('');
+const [busyId, setBusyId] = useState(null);
 
-  async function load() {
-    setLoading(true);
-    try {
-      const { data } = await api.get('/vouchers/mine', { params: filters });
-      setVouchers(data.data);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load vouchers.');
-    } finally {
-      setLoading(false);
-    }
+async function load(page = 1) {
+  setLoading(true);
+  try {
+    const { data } = await api.get('/vouchers/mine', { params: { ...filters, page, pageSize: 10 } });
+    setVouchers(data.data.items);
+    setPagination(data.data.pagination);
+  } catch (err) {
+    setError(err.response?.data?.message || 'Failed to load vouchers.');
+  } finally {
+    setLoading(false);
   }
+}
 
-  useEffect(() => { load(); }, [filters]);
+useEffect(() => { load(1); }, [filters]);
 
   async function handleSubmit(id) {
     setBusyId(id);
@@ -116,6 +119,7 @@ export default function MyVouchers() {
           </table>
         </div>
       )}
+      <Pagination page={pagination.page} totalPages={pagination.totalPages} onChange={load} />
     </div>
   );
 }

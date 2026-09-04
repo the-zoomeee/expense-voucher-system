@@ -2,20 +2,27 @@ import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import VoucherTable from '../../components/VoucherTable';
 import VoucherFilters from '../../components/VoucherFilters';
+import Pagination from '../../components/Pagination';
 
 export default function DirectorAllVouchers() {
   const [vouchers, setVouchers] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
   const [filters, setFilters] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  function load(page = 1) {
     setLoading(true);
-    api.get('/vouchers', { params: filters })
-      .then(({ data }) => setVouchers(data.data))
+    api.get('/vouchers', { params: { ...filters, page, pageSize: 10 } })
+      .then(({ data }) => {
+        setVouchers(data.data.items);
+        setPagination(data.data.pagination);
+      })
       .catch((err) => setError(err.response?.data?.message || 'Failed to load.'))
       .finally(() => setLoading(false));
-  }, [filters]);
+  }
+
+  useEffect(() => { load(1); }, [filters]);
 
   if (error) return <p className="text-red-600">{error}</p>;
 
@@ -30,6 +37,7 @@ export default function DirectorAllVouchers() {
       {loading ? <p className="text-slate-500">Loading…</p> : (
         <VoucherTable vouchers={vouchers} emptyText="No vouchers match your filters." />
       )}
+      <Pagination page={pagination.page} totalPages={pagination.totalPages} onChange={load} />
     </div>
   );
 }

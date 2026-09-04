@@ -8,11 +8,14 @@ const SORTABLE_COLUMNS = {
   status: 'v.status',
 };
 
+const DEFAULT_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 100;
+
 function buildVoucherFilters(query) {
   const {
     search, department, category, status,
     dateFrom, dateTo, amountMin, amountMax,
-    sortBy, sortOrder,
+    sortBy, sortOrder, page, pageSize,
   } = query;
 
   const clauses = [];
@@ -57,7 +60,12 @@ function buildVoucherFilters(query) {
   const direction = String(sortOrder).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
   const orderSql = `ORDER BY ${column} ${direction}`;
 
-  return { whereSql, params, orderSql };
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const sizeNum = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(pageSize, 10) || DEFAULT_PAGE_SIZE));
+  const offset = (pageNum - 1) * sizeNum;
+  const limitSql = `LIMIT ${sizeNum} OFFSET ${offset}`;
+
+  return { whereSql, params, orderSql, limitSql, page: pageNum, pageSize: sizeNum };
 }
 
 module.exports = { buildVoucherFilters };
