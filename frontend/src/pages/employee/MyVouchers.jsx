@@ -4,37 +4,40 @@ import api from '../../api/axios';
 import StatusBadge from '../../components/StatusBadge';
 import VoucherFilters from '../../components/VoucherFilters';
 import Pagination from '../../components/Pagination';
+import { useToast } from '../../context/ToastContext';
 
 export default function MyVouchers() {
+  const toast = useToast();
   const [vouchers, setVouchers] = useState([]);
-const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
-const [filters, setFilters] = useState({});
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState('');
-const [busyId, setBusyId] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
+  const [filters, setFilters] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busyId, setBusyId] = useState(null);
 
-async function load(page = 1) {
-  setLoading(true);
-  try {
-    const { data } = await api.get('/vouchers/mine', { params: { ...filters, page, pageSize: 10 } });
-    setVouchers(data.data.items);
-    setPagination(data.data.pagination);
-  } catch (err) {
-    setError(err.response?.data?.message || 'Failed to load vouchers.');
-  } finally {
-    setLoading(false);
+  async function load(page = 1) {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/vouchers/mine', { params: { ...filters, page, pageSize: 10 } });
+      setVouchers(data.data.items);
+      setPagination(data.data.pagination);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load vouchers.');
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
-useEffect(() => { load(1); }, [filters]);
+  useEffect(() => { load(1); }, [filters]);
 
   async function handleSubmit(id) {
     setBusyId(id);
     try {
       await api.post(`/vouchers/${id}/submit`);
       await load();
+      toast.success('Voucher submitted for approval.');
     } catch (err) {
-      alert(err.response?.data?.message || 'Could not submit voucher.');
+      toast.error(err.response?.data?.message || 'Could not submit voucher.');
     } finally {
       setBusyId(null);
     }
@@ -46,8 +49,9 @@ useEffect(() => { load(1); }, [filters]);
     try {
       await api.delete(`/vouchers/${id}`);
       await load();
+      toast.success('Voucher deleted.');
     } catch (err) {
-      alert(err.response?.data?.message || 'Could not delete voucher.');
+      toast.error(err.response?.data?.message || 'Could not delete voucher.');
     } finally {
       setBusyId(null);
     }
