@@ -22,6 +22,7 @@ export default function VoucherForm({ mode }) {
   const [signatureFile, setSignatureFile] = useState(null);
   const [existingSignature, setExistingSignature] = useState(null);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
 
@@ -46,13 +47,30 @@ export default function VoucherForm({ mode }) {
     });
   }, [id, isEdit]);
 
+  function validate() {
+    const errors = {};
+    if (!form.departmentName.trim()) errors.departmentName = 'Department is required.';
+    if (!form.expenseTitle.trim()) errors.expenseTitle = 'Expense title is required.';
+    if (!form.expenseDate) errors.expenseDate = 'Expense date is required.';
+    if (!form.expenseCategory) errors.expenseCategory = 'Category is required.';
+    if (!form.amount || Number(form.amount) <= 0) errors.amount = 'Amount must be greater than zero.';
+    if (!existingSignature && !signatureFile) errors.signature = 'A signature image is required.';
+    return errors;
+  }
+
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
+    setFieldErrors({ ...fieldErrors, [e.target.name]: undefined });
   }
 
   async function handleSave(e, andSubmit = false) {
     e.preventDefault();
     setError('');
+
+    const errors = validate();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
     setSaving(true);
 
     try {
@@ -103,13 +121,15 @@ export default function VoucherForm({ mode }) {
         <div>
           <label className="block text-sm font-medium mb-1">Department *</label>
           <input name="departmentName" value={form.departmentName} onChange={handleChange}
-            className="w-full border rounded-lg px-3 py-2" required placeholder="e.g. Engineering" />
+            className={`w-full border rounded-lg px-3 py-2 ${fieldErrors.departmentName ? 'border-red-400' : ''}`} placeholder="e.g. Engineering" />
+            {fieldErrors.departmentName && <p className="text-xs text-red-600 mt-1">{fieldErrors.departmentName}</p>}
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-1">Expense Title *</label>
           <input name="expenseTitle" value={form.expenseTitle} onChange={handleChange}
-            className="w-full border rounded-lg px-3 py-2" required placeholder="e.g. Client visit travel" />
+            className={`w-full border rounded-lg px-3 py-2 ${fieldErrors.expenseTitle ? 'border-red-400' : ''}`} required placeholder="e.g. Client visit travel" />
+            {fieldErrors.expenseTitle && <p className="text-xs text-red-600 mt-1">{fieldErrors.expenseTitle}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -123,7 +143,8 @@ export default function VoucherForm({ mode }) {
           <div>
             <label className="block text-sm font-medium mb-1">Amount (₹) *</label>
             <input type="number" min="0.01" step="0.01" name="amount" value={form.amount} onChange={handleChange}
-              className="w-full border rounded-lg px-3 py-2" required />
+              className={`w-full border rounded-lg px-3 py-2 ${fieldErrors.amount ? 'border-red-400' : ''}`} required />
+              {fieldErrors.amount && <p className="text-xs text-red-600 mt-1">{fieldErrors.amount}</p>}
           </div>
         </div>
 
