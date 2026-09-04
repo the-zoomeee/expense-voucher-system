@@ -7,12 +7,20 @@ import StatusBadge from '../components/StatusBadge';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 const fileUrl = (p) => (p ? `${API_BASE}${p}` : null);
 
+const STATUS_LABELS = {
+  draft: 'Saved as draft',
+  pending: 'Submitted for approval',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
 export default function VoucherDetails() {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [voucher, setVoucher] = useState(null);
+  const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [directorSignature, setDirectorSignature] = useState(null);
@@ -21,8 +29,12 @@ export default function VoucherDetails() {
 
   async function load() {
     try {
-      const { data } = await api.get(`/vouchers/${id}`);
-      setVoucher(data.data);
+      const [voucherRes, historyRes] = await Promise.all([
+        api.get(`/vouchers/${id}`),
+        api.get(`/vouchers/${id}/history`),
+      ]);
+      setVoucher(voucherRes.data.data);
+      setHistory(historyRes.data.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load voucher.');
     }
@@ -148,6 +160,30 @@ export default function VoucherDetails() {
             </form>
 
             {actionError && <p className="text-sm text-red-600">{actionError}</p>}
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <div className="no-print border-t pt-4 mt-6">
+            <h2 className="text-sm font-semibold mb-3">History</h2>
+            <ol className="space-y-3">
+              {history.map((h) => (
+                <li key={h.id} className="flex gap-3 text-sm">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-brand-500 shrink-0" />
+                  <div>
+                    <p>
+                      <span className="font-medium">{h.changed_by_name}</span>{' '}
+                      <span className="text-slate-500">({h.changed_by_role})</span>{' '}
+                      {STATUS_LABELS[h.to_status] || h.to_status}
+                    </p>
+                    {h.note && <p className="text-slate-500">"{h.note}"</p>}
+                    <p className="text-xs text-slate-400">
+                      {new Date(h.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
         )}
       </div>

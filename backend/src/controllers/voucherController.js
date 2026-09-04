@@ -39,6 +39,14 @@ function assertCanView(voucher, user) {
   }
 }
 
+async function logHistory(voucherId, changedBy, fromStatus, toStatus, note = null) {
+  await pool.query(
+    `INSERT INTO voucher_history (voucher_id, changed_by, from_status, to_status, note)
+     VALUES (?, ?, ?, ?, ?)`,
+    [voucherId, changedBy, fromStatus, toStatus, note]
+  );
+}
+
 // always created as draft
 const createVoucher = asyncHandler(async (req, res) => {
   validateVoucherFields(req.body);
@@ -68,6 +76,8 @@ const createVoucher = asyncHandler(async (req, res) => {
       signaturePath,
     ]
   );
+
+  await logHistory(result.insertId, req.user.id, null, 'draft');
 
   const voucher = await findVoucherOr404(result.insertId);
   return success(res, 201, 'Voucher saved as draft.', voucher);
@@ -141,58 +151,37 @@ const submitVoucher = asyncHandler(async (req, res) => {
   }
 
   await pool.query(`UPDATE vouchers SET status = 'pending' WHERE id = ?`, [voucher.id]);
+  await logHistory(voucher.id, req.user.id, voucher.status, 'pending');
+
   const updated = await findVoucherOr404(voucher.id);
   return success(res, 200, 'Voucher submitted for approval.', updated);
 });
 
 const getMyVouchers = asyncHandler(async (req, res) => {
-  const { whereSql, params, orderSql, limitSql, page, pageSize } = buildVoucherFilters(req.query);
+  const { whereSql, params, orderSql } = buildVoucherFilters(req.query);
   const scopedWhere = whereSql
     ? `${whereSql} AND v.employee_id = ?`
     : 'WHERE v.employee_id = ?';
-  const scopedParams = [...params, req.user.id];
-
-  const [[{ total }]] = await pool.query(
-    `SELECT COUNT(*) AS total
-     FROM vouchers v JOIN users u ON u.id = v.employee_id
-     ${scopedWhere}`,
-    scopedParams
-  );
 
   const [rows] = await pool.query(
     `SELECT v.*, u.name AS employee_name
      FROM vouchers v JOIN users u ON u.id = v.employee_id
-     ${scopedWhere} ${orderSql} ${limitSql}`,
-    scopedParams
+     ${scopedWhere} ${orderSql}`,
+    [...params, req.user.id]
   );
-
-  return success(res, 200, 'Your vouchers fetched.', {
-    items: rows,
-    pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
-  });
+  return success(res, 200, 'Your vouchers fetched.', rows);
 });
 
 const getAllVouchers = asyncHandler(async (req, res) => {
-  const { whereSql, params, orderSql, limitSql, page, pageSize } = buildVoucherFilters(req.query);
-
-  const [[{ total }]] = await pool.query(
-    `SELECT COUNT(*) AS total
-     FROM vouchers v JOIN users u ON u.id = v.employee_id
-     ${whereSql}`,
-    params
-  );
+  const { whereSql, params, orderSql } = buildVoucherFilters(req.query);
 
   const [rows] = await pool.query(
     `SELECT v.*, u.name AS employee_name
      FROM vouchers v JOIN users u ON u.id = v.employee_id
-     ${whereSql} ${orderSql} ${limitSql}`,
+     ${whereSql} ${orderSql}`,
     params
   );
-
-  return success(res, 200, 'Vouchers fetched.', {
-    items: rows,
-    pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
-  });
+  return success(res, 200, 'Vouchers fetched.', rows);
 });
 
 const getPendingVouchers = asyncHandler(async (req, res) => {
@@ -221,6 +210,19 @@ const getVoucherById = asyncHandler(async (req, res) => {
   return success(res, 200, 'Voucher fetched.', voucher);
 });
 
+const getVoucherHistory = asyncHandler(async (req, res) => {
+  const voucher = await findVoucherOr404(req.params.id);
+  assertCanView(voucher, req.user);
+
+  const [rows] = await pool.query(
+    `SELECT h.*, u.name AS changed_by_name, u.role AS changed_by_role
+     FROM voucher_history h JOIN users u ON u.id = h.changed_by
+     WHERE h.voucher_id = ? ORDER BY h.created_at ASC`,
+    [voucher.id]
+  );
+  return success(res, 200, 'Voucher history fetched.', rows);
+});
+
 const approveVoucher = asyncHandler(async (req, res) => {
   const voucher = await findVoucherOr404(req.params.id);
 
@@ -239,6 +241,7 @@ const approveVoucher = asyncHandler(async (req, res) => {
      WHERE id = ?`,
     [req.user.id, signaturePath, voucher.id]
   );
+  await logHistory(voucher.id, req.user.id, voucher.status, 'approved');
 
   const updated = await findVoucherOr404(voucher.id);
   return success(res, 200, 'Voucher approved.', updated);
@@ -261,6 +264,7 @@ const rejectVoucher = asyncHandler(async (req, res) => {
      WHERE id = ?`,
     [req.user.id, rejectionReason.trim(), voucher.id]
   );
+  await logHistory(voucher.id, req.user.id, voucher.status, 'rejected', rejectionReason.trim());
 
   const updated = await findVoucherOr404(voucher.id);
   return success(res, 200, 'Voucher rejected.', updated);
@@ -363,6 +367,7 @@ module.exports = {
   getAllVouchers,
   getPendingVouchers,
   getVoucherById,
+  getVoucherHistory,
   approveVoucher,
   rejectVoucher,
   getEmployeeDashboard,

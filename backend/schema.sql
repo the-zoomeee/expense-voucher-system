@@ -44,3 +44,18 @@ CREATE TABLE IF NOT EXISTS vouchers (
 
 CREATE INDEX idx_vouchers_employee ON vouchers(employee_id);
 CREATE INDEX idx_vouchers_status ON vouchers(status);
+
+
+CREATE TABLE IF NOT EXISTS voucher_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  voucher_id INT NOT NULL,
+  changed_by INT NOT NULL,
+  from_status ENUM('draft', 'pending', 'approved', 'rejected') DEFAULT NULL,
+  to_status ENUM('draft', 'pending', 'approved', 'rejected') NOT NULL,
+  note TEXT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_history_voucher FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
+  CONSTRAINT fk_history_user FOREIGN KEY (changed_by) REFERENCES users(id)
+);
+
+CREATE INDEX idx_history_voucher ON voucher_history(voucher_id);

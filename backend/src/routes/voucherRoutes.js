@@ -23,6 +23,7 @@ router.get('/dashboard/accounts', authorize('accounts'), ctrl.getAccountsDashboa
 
 router.get('/', authorize('director', 'accounts'), ctrl.getAllVouchers);
 
+router.get('/:id/history', ctrl.getVoucherHistory);
 router.get('/:id', ctrl.getVoucherById);
 
 module.exports = router;
