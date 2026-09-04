@@ -5,6 +5,7 @@ const roleHome = {
   employee: '/employee/dashboard',
   director: '/director/dashboard',
   accounts: '/accounts/dashboard',
+  hr: '/hr/dashboard',
 };
 
 export default function Navbar() {
@@ -37,6 +38,12 @@ export default function Navbar() {
           <>
             <Link to="/accounts/dashboard" className="hover:underline">Dashboard</Link>
             <Link to="/accounts/vouchers" className="hover:underline">All Vouchers</Link>
+          </>
+        )}
+        {user.role === 'hr' && (
+          <>
+            <Link to="/hr/dashboard" className="hover:underline">Dashboard</Link>
+            <Link to="/hr/employees" className="hover:underline">Employees</Link>
           </>
         )}
         <span className="opacity-80">{user.name} ({user.role})</span>

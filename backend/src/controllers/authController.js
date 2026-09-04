@@ -33,6 +33,10 @@ const login = asyncHandler(async (req, res) => {
     throw new AppError('Invalid email or password.', 401);
   }
 
+  if (!user.is_active) {
+    throw new AppError('Your account has been deactivated. Contact HR.', 403);
+  }
+
   const token = signToken(user);
 
   return success(res, 200, 'Login successful.', {

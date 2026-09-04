@@ -6,6 +6,7 @@ const roleHome = {
   employee: '/employee/dashboard',
   director: '/director/dashboard',
   accounts: '/accounts/dashboard',
+  hr: '/hr/dashboard',
 };
 
 export default function Login() {
@@ -68,7 +69,7 @@ export default function Login() {
 
         <div className="mt-6 text-xs text-slate-400 border-t pt-4">
           <p className="font-medium mb-1">Demo accounts (seeded):</p>
-          <p>employee@demo.com — director@demo.com — accounts@demo.com</p>
+          <p>employee@demo.com — director@demo.com — accounts@demo.com — hr@demo.com</p>
           <p>Password: Password@123</p>
         </div>
       </div>

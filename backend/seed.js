@@ -28,6 +28,14 @@ const demoUsers = [
     department_name: null,
     employee_code: null,
   },
+  {
+    name: 'Kavita HR',
+    email: 'hr@demo.com',
+    password: 'Password@123',
+    role: 'hr',
+    department_name: null,
+    employee_code: null,
+  },
 ];
 
 async function seed() {

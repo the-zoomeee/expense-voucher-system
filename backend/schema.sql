@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(150) NOT NULL,
   email VARCHAR(150) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('employee', 'director', 'accounts') NOT NULL,
+  role ENUM('employee', 'director', 'accounts', 'hr') NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
   employee_code VARCHAR(50) DEFAULT NULL,
   department_name VARCHAR(150) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -44,7 +45,6 @@ CREATE TABLE IF NOT EXISTS vouchers (
 
 CREATE INDEX idx_vouchers_employee ON vouchers(employee_id);
 CREATE INDEX idx_vouchers_status ON vouchers(status);
-
 
 CREATE TABLE IF NOT EXISTS voucher_history (
   id INT AUTO_INCREMENT PRIMARY KEY,

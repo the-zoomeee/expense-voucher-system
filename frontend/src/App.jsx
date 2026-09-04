@@ -17,10 +17,14 @@ import DirectorAllVouchers from './pages/director/AllVouchers';
 import AccountsDashboard from './pages/accounts/Dashboard';
 import AccountsAllVouchers from './pages/accounts/AllVouchers';
 
+import HrDashboard from './pages/hr/Dashboard';
+import Employees from './pages/hr/Employees';
+
 const roleHome = {
   employee: '/employee/dashboard',
   director: '/director/dashboard',
   accounts: '/accounts/dashboard',
+  hr: '/hr/dashboard',
 };
 
 function Home() {
@@ -69,6 +73,14 @@ export default function App() {
           } />
           <Route path="/accounts/vouchers" element={
             <ProtectedRoute roles={['accounts']}><AccountsAllVouchers /></ProtectedRoute>
+          } />
+
+          {/* HR */}
+          <Route path="/hr/dashboard" element={
+            <ProtectedRoute roles={['hr']}><HrDashboard /></ProtectedRoute>
+          } />
+          <Route path="/hr/employees" element={
+            <ProtectedRoute roles={['hr']}><Employees /></ProtectedRoute>
           } />
 
           {/* Shared voucher details, access-checked by the backend */}
