@@ -1,147 +1,176 @@
-# Expense Voucher Management System
+# expense-voucher-system
 
-Full-stack app for ABC Company's expense voucher workflow: employees create and
-submit vouchers, the Director approves/rejects them, and the Accounts Team
-monitors everything for reimbursement — with role dashboards and search/filter/
-sort/print on top.
+A small internal tool for handling expense vouchers end to end — an employee raises a voucher, a director approves or rejects it, and accounts can see everything that's been approved for payment. HR manages the user accounts on top of that.
 
-Stack: React (Vite) + Tailwind on the frontend, Node.js/Express + MySQL on the
-backend, JWT auth, Multer for signature image uploads.
+Built as a MERN-ish stack, minus the M — MySQL instead of Mongo, Express + Node on the backend, React (Vite) on the frontend, Tailwind for styling.
 
-## 1. Project setup
-
-### Prerequisites
-- Node.js 18+
-- MySQL 8+ running locally (or reachable)
-
-### Database
-```bash
-mysql -u root -p < backend/schema.sql
-```
-This creates the `expense_voucher_db` database with `users` and `vouchers` tables.
-
-### Backend
-```bash
-cd backend
-cp .env.example .env      # fill in your MySQL credentials + a JWT secret
-npm install
-npm run seed               # creates one demo user per role
-npm run dev                 # http://localhost:5000
-```
-
-Seeded demo accounts (password for all: `Password@123`):
-| Role | Email |
-|---|---|
-| Employee | employee@demo.com |
-| Director | director@demo.com |
-| Accounts | accounts@demo.com |
-
-### Frontend
-```bash
-cd frontend
-cp .env.example .env       # VITE_API_BASE_URL, defaults to http://localhost:5000
-npm install
-npm run dev                 # http://localhost:5173
-```
-
-The Vite dev server proxies `/api` and `/uploads` to the backend, so the two
-run independently in development.
-
-## 2. Database schema
-
-**`users`** — one row per person, `role` is `employee | director | accounts`.
-`department_name` and `employee_code` are only meaningful for employees.
-
-**`vouchers`** — one row per voucher.
-- `status` is `draft | pending | approved | rejected`. "Submitted" and
-  "Pending Approval" from the spec are collapsed into a single `pending`
-  state, since nothing in the workflow distinguishes them once submitted.
-- `employee_id` / `director_id` are FKs into `users`.
-- `employee_signature_path` / `director_signature_path` store the relative
-  `/uploads/signatures/...` path to the uploaded image; the file itself lives
-  on disk under `backend/uploads/signatures`.
-- A `CHECK (amount > 0)` constraint enforces the "amount must be positive" rule
-  at the DB layer in addition to backend validation.
-- `voucher_number` is generated server-side as `VCH-<year>-<sequence>`
-  (e.g. `VCH-2026-0007`) and is unique.
-
-See `backend/schema.sql` for the full DDL.
-
-## 3. API documentation
-
-All responses share the envelope `{ success, message, data }` (or `errors`
-on failure). Protected routes require `Authorization: Bearer <token>`.
-
-### Auth
-| Method | Route | Access | Notes |
-|---|---|---|---|
-| POST | `/api/auth/login` | Public | `{ email, password }` → `{ token, user }` |
-| GET | `/api/auth/me` | Any authenticated user | Returns the current user |
-
-### Vouchers
-| Method | Route | Access | Notes |
-|---|---|---|---|
-| POST | `/api/vouchers` | Employee | multipart form; creates a **draft** |
-| PUT | `/api/vouchers/:id` | Employee (owner) | Draft only |
-| DELETE | `/api/vouchers/:id` | Employee (owner) | Draft only |
-| POST | `/api/vouchers/:id/submit` | Employee (owner) | Draft → Pending; requires a signature already on file |
-| GET | `/api/vouchers/mine` | Employee | All of the caller's own vouchers |
-| GET | `/api/vouchers` | Director, Accounts | Optional `?status=` filter |
-| GET | `/api/vouchers/pending` | Director | Vouchers awaiting approval |
-| GET | `/api/vouchers/dashboard/employee` | Employee | Total/draft/pending/approved/rejected counts + total amount claimed |
-| GET | `/api/vouchers/dashboard/director` | Director | Pending count, approved/rejected today, total pending amount, recent activity |
-| GET | `/api/vouchers/dashboard/accounts` | Accounts | Totals by status, total approved expense amount, recent approved vouchers |
-| GET | `/api/vouchers/:id` | Owner employee, Director, Accounts | 403 if an employee requests someone else's voucher |
-| POST | `/api/vouchers/:id/approve` | Director | multipart, requires `directorSignature` file |
-| POST | `/api/vouchers/:id/reject` | Director | requires `rejectionReason` in body |
-
-Create/update accept multipart form fields: `voucherDate`, `expenseDate`,
-`departmentName`, `expenseTitle`, `expenseCategory`, `expenseDescription`,
-`amount`, and an optional `employeeSignature` file.
-
-### Search, filter, and sort (bonus point)
-
-`GET /api/vouchers` and `GET /api/vouchers/mine` both accept the same query
-params: `search` (matches voucher number or employee name), `department`,
-`category`, `status`, `dateFrom`/`dateTo` (expense date range),
-`amountMin`/`amountMax`, and `sortBy` (`created_at` | `voucher_date` |
-`expense_date` | `amount` | `voucher_number` | `status`) with `sortOrder`
-(`asc`/`desc`). All are optional and combine with AND.
-
-## 4. Notes / assumptions
-
-- Collapsed "Submitted" and "Pending Approval" into one `pending` status,
-  there's no separate action between them in the actual workflow.
-- Signature isn't required to save a draft, only to submit it.
-- Voucher numbers are just `VCH-<year>-<sequence>`, auto-generated.
-- Signature uploads: PNG/JPG/WEBP only, 2MB cap by default (`MAX_UPLOAD_MB`).
-- No re-approving a rejected voucher — once it leaves `pending` it's final.
-- "Total Amount Claimed" on the employee dashboard = pending + approved +
-  rejected (drafts don't count, nothing's been claimed yet).
-- Print/download is just `window.print()` with a print stylesheet that hides
-  the nav and action buttons — didn't want to pull in a PDF lib for this.
-
-## 5. Project structure
+Repo layout is just the two apps side by side:
 
 ```
 expense-voucher-system/
-├── backend/
-│   ├── schema.sql
-│   ├── seed.js
-│   ├── .env.example
-│   └── src/
-│       ├── config/db.js
-│       ├── controllers/
-│       ├── middleware/         # auth, file upload, error handling
-│       ├── routes/
-│       ├── utils/
-│       ├── app.js
-│       └── server.js
-└── frontend/
-    ├── .env.example
-    └── src/
-        ├── api/axios.js
-        ├── context/AuthContext.jsx
-        ├── components/
-        └── pages/{employee,director,accounts}/
+  backend/
+  frontend/
+  README.md   <- you are here
+```
+
+## Why this exists
+
+Most "approval flow" demos online are either a to-do list with extra steps or way over-engineered with microservices for no reason. This one's meant to actually mirror how a small company would do it — one employee raises the expense, one director signs off (digitally, with an uploaded signature image), accounts gets a read-only view of what's been cleared, and HR handles onboarding/offboarding of accounts. Nothing fancier than that.
+
+## Roles
+
+There are four roles, and the UI + API both change based on who's logged in:
+
+| Role | Can do |
+|---|---|
+| `employee` | Create/edit/delete their own vouchers (while in draft), submit for approval, track status |
+| `director` | See pending vouchers, approve (with signature upload) or reject with a reason |
+| `accounts` | Read-only view of all vouchers, mainly for reconciliation/payment tracking |
+| `hr` | Manage user accounts — create, deactivate, reset passwords |
+
+Every route on the backend is locked down by role via `authorize()` middleware, not just hidden in the UI — so there's no "just call the API directly" shortcut to bypass permissions.
+
+## Stack
+
+**Backend** — `/backend`
+- Express + MySQL (mysql2)
+- JWT auth, bcrypt for password hashing
+- Multer for signature image uploads
+- Plain SQL, no ORM (schema is hand-written in `schema.sql`)
+
+**Frontend** — `/frontend`
+- React 18 + Vite
+- Tailwind CSS
+- React Router for the role-based routing
+- Axios for API calls, with a small context for auth + toast notifications
+
+## Getting it running locally
+
+You'll need Node 18+ and a MySQL server running somewhere you can reach.
+
+```bash
+git clone <your-repo-url> expense-voucher-system
+cd expense-voucher-system
+```
+
+### 1. Database
+
+```bash
+mysql -u root -p < backend/schema.sql
+```
+
+This creates the `expense_voucher_db` database and all the tables (`users`, `vouchers`, `voucher_history`).
+
+### 2. Backend
+
+```bash
+cd backend
+npm install
+cp .env.example .env   # then fill in your DB password and a real JWT secret
+npm run seed            # creates the 4 demo accounts, skips ones that already exist
+npm run dev              # nodemon, http://localhost:5000
+```
+
+Don't leave `JWT_SECRET` as the placeholder value in `.env.example` — swap it for something random before you push this anywhere.
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev              # http://localhost:5173
+```
+
+The frontend expects the API at whatever's in `frontend/.env` (`VITE_API_BASE_URL`), defaults to `http://localhost:5000`.
+
+## Demo logins
+
+`npm run seed` creates these four accounts, all with the password `Password@123`:
+
+| Email | Role | Employee code | Department |
+|---|---|---|---|
+| employee@demo.com | employee | EMP001 | Engineering |
+| director@demo.com | director | DIR001 | Management |
+| accounts@demo.com | accounts | ACC001 | Finance |
+| hr@demo.com | hr | HR001 | Human Resources |
+
+A couple of things worth knowing about this table:
+
+- **`employee_code` and `department_name` are optional at the DB level** (`VARCHAR DEFAULT NULL`). They're not exclusive to the `employee` role — that was just how the seed data looked originally, since only employees actually raise vouchers so only they *needed* a code at first. Once the profile page went in, it made more sense to give every demo account a code and department too, so the profile screen doesn't show a bunch of blank dashes for three out of four logins.
+- **The seed script skips existing rows.** If you already ran `npm run seed` before this change, re-running it won't backfill the new values — it checks `SELECT id FROM users WHERE email = ?` first and just logs "already exists" and moves on. If your local DB already has these four users without a code/department, run this once by hand:
+
+```sql
+UPDATE users SET employee_code = 'DIR001', department_name = 'Management'      WHERE email = 'director@demo.com';
+UPDATE users SET employee_code = 'ACC001', department_name = 'Finance'         WHERE email = 'accounts@demo.com';
+UPDATE users SET employee_code = 'HR001',  department_name = 'Human Resources' WHERE email = 'hr@demo.com';
+```
+
+Why bother mentioning this at all instead of just quietly fixing it? Because it's the kind of thing that looks like a bug when you're demoing this to someone (three logins randomly missing fields on their own profile page) and it's easy to lose ten minutes debugging the wrong layer — checking the API response, the React component, the JWT payload — when the actual answer is just "the seed data never set it." Saving that debugging time for whoever reads this next, including future-me.
+
+## What's in the UI
+
+- **Login** — role-based redirect after auth, straight to that role's dashboard.
+- **Employee** — dashboard with quick stats, "My Vouchers" list, a form to raise a new voucher (with signature upload), edit while still in draft.
+- **Director** — dashboard, pending approvals queue, approve/reject with signature + reason, full voucher history view.
+- **Accounts** — dashboard + a read-only table of every voucher for reconciliation.
+- **HR** — dashboard + employee management (create accounts, deactivate, reset a user's password).
+- **Profile (all roles)** — click your name/avatar in the top-right of the navbar. Shows your name, email, role, department, and employee code, plus a form to change your own password. This replaced what used to be a plain "Change Password" link — same backend endpoint (`PATCH /auth/password`), just folded into one page with the account info instead of being a separate bare form.
+
+## API shape, roughly
+
+Everything's under `/api`:
+
+```
+POST   /auth/login
+GET    /auth/me
+PATCH  /auth/password
+
+POST   /vouchers                 (employee)
+PUT    /vouchers/:id             (employee, own draft only)
+DELETE /vouchers/:id             (employee, own draft only)
+POST   /vouchers/:id/submit      (employee)
+GET    /vouchers/mine            (employee)
+
+GET    /vouchers/pending         (director)
+POST   /vouchers/:id/approve     (director)
+POST   /vouchers/:id/reject      (director)
+
+GET    /vouchers                 (director, accounts)
+GET    /vouchers/:id/history
+GET    /vouchers/:id
+
+GET    /users                    (hr)
+POST   /users                    (hr)
+PUT    /users/:id                (hr)
+PATCH  /users/:id/status         (hr)
+PATCH  /users/:id/password       (hr)
+```
+
+Full request/response shapes aren't documented separately right now — the controllers are short enough that reading `src/controllers/*.js` directly is honestly faster than keeping a Postman collection in sync.
+
+## Known gaps / things I'd do next
+
+- No email notifications when a voucher is approved/rejected — director has to tell the employee themselves right now.
+- Signature uploads are stored on local disk (`/backend/uploads/signatures`), not S3 or anything — fine for a demo, not fine for production.
+- No pagination on the accounts "all vouchers" table yet, it just loads everything. Would matter once there's real volume.
+- Password reset by HR is a straight overwrite, no "send reset link" flow — this is an internal tool so that trade-off was acceptable, but worth flagging.
+
+## Folder structure
+
+```
+backend/
+  src/
+    controllers/    business logic per resource
+    routes/          route -> controller wiring, auth checks live here
+    middleware/      auth (JWT verify + role check), multer upload config
+    config/          db pool
+  schema.sql
+  seed.js
+
+frontend/
+  src/
+    pages/           one file per screen, split into role folders
+    components/      Navbar, ProtectedRoute, shared table/form bits
+    context/         AuthContext, ToastContext
+    api/             axios instance
 ```
